@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getProjectSummary } from "@/lib/scope-client";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
+// Bimm brand colors
+const COLORS = ["#FF4433", "#4D74FB", "#6ECA09", "#7639e2"];
 
 export async function GET() {
   const projects = [1, 2, 3, 4].map((i, idx) => ({

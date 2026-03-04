@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Wrench, ChevronDown, ChevronRight } from "lucide-react";
+import { Search, ChevronDown, ChevronRight } from "lucide-react";
 import { ProjectBadge } from "./project-badge";
 import { ToolCall, Project } from "@/lib/types";
 
@@ -19,13 +19,13 @@ export function ToolCallBlock({ toolCall, projects }: ToolCallBlockProps) {
     .replace(/_/g, " ");
 
   return (
-    <div className="border border-border/50 rounded-md bg-accent/30 text-xs my-2">
+    <div className="rounded-lg border border-border/50 bg-secondary/50 text-xs overflow-hidden">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-accent/50 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-secondary transition-colors"
       >
-        <Wrench className="h-3 w-3 text-muted-foreground shrink-0" />
-        <span className="text-muted-foreground font-medium">
+        <Search className="h-3 w-3 text-[#FF4433] shrink-0" />
+        <span className="text-muted-foreground">
           {displayName}
         </span>
         {project && (
@@ -39,7 +39,7 @@ export function ToolCallBlock({ toolCall, projects }: ToolCallBlockProps) {
         )}
       </button>
       {expanded && (
-        <div className="border-t border-border/50 px-3 py-2 bg-black/10">
+        <div className="border-t border-border/50 px-3 py-2 bg-background/50">
           <pre className="font-mono text-muted-foreground whitespace-pre-wrap">
             {JSON.stringify(toolCall.arguments, null, 2)}
           </pre>
