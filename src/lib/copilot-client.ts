@@ -1,100 +1,79 @@
 import OpenAI from "openai";
-import { scopeMcpTools } from "./scope-tools";
+import { searchAcrossProjects, TaggedSearchResult } from "./scope-client";
 import { ToolCall, SourceReference } from "./types";
 
-// GitHub Copilot API is OpenAI-compatible
+// GitHub Copilot API is OpenAI-compatible via GitHub Models
 const client = new OpenAI({
   apiKey: process.env.GITHUB_TOKEN,
   baseURL: "https://models.inference.ai.azure.com",
 });
 
-const SCOPE_API_URL = process.env.SCOPE_API_URL || "https://app.scope.ink/api";
-const SCOPE_API_KEY = process.env.SCOPE_API_KEY || "";
-
 interface ProjectMapping {
   id: string;
   name: string;
+  color?: string;
 }
 
-function buildSystemPrompt(projects: ProjectMapping[]): string {
+/** Build the system prompt with project context injected */
+function buildSystemPrompt(
+  projects: ProjectMapping[],
+  contextResults: TaggedSearchResult[]
+): string {
   const projectList = projects
-    .map((p) => `- Project ID: "${p.id}" → Repo: "${p.name}"`)
+    .map((p) => `- "${p.name}" (ID: ${p.id})`)
     .join("\n");
 
-  return `You are a cross-repository code assistant. You have access to ${projects.length} codebases via Scope MCP tools.
+  // Format search results grouped by project
+  const contextByProject = new Map<string, TaggedSearchResult[]>();
+  for (const r of contextResults) {
+    const existing = contextByProject.get(r.projectName) || [];
+    existing.push(r);
+    contextByProject.set(r.projectName, existing);
+  }
 
-Available projects:
+  let contextBlock = "";
+  for (const [projectName, results] of contextByProject) {
+    contextBlock += `\n### [${projectName}]\n`;
+    for (const r of results.slice(0, 8)) {
+      contextBlock += `- **${r.type}**: ${r.name}`;
+      if (r.description) contextBlock += ` — ${r.description}`;
+      if (r.filePath) contextBlock += ` (${r.filePath})`;
+      contextBlock += "\n";
+      if (r.snippet) {
+        contextBlock += `  \`\`\`\n  ${r.snippet.slice(0, 500)}\n  \`\`\`\n`;
+      }
+    }
+  }
+
+  return `You are a cross-repository code assistant. You answer questions about codebases using real context from Scope.
+
+## Available Projects
 ${projectList}
 
-When answering questions:
-1. Use scope_search to find relevant code across projects
-2. Use scope_get_context for high-level understanding
-3. Use scope_analyze for dependency and data flow questions
-4. Always cite which project/file your information comes from
-5. When referencing code, include the file path and project name
+## Codebase Context
+The following context was retrieved from Scope's semantic search across the selected repositories. Use this to ground your answers in real code.
+${contextBlock || "\n(No relevant context found — answer based on general knowledge and note that no specific code references were found.)"}
 
-Be concise and technical. Reference specific files and line numbers when possible.`;
+## Instructions
+1. Always cite which project and file your information comes from using [project-name] tags
+2. When referencing code, include the file path
+3. If the context doesn't contain enough information to fully answer, say so
+4. Be concise and technical
+5. When comparing across repos, clearly label which repo each piece comes from`;
 }
 
-async function callScopeTool(
-  name: string,
-  args: Record<string, unknown>
-): Promise<string> {
-  try {
-    const endpoint = name.replace("scope_", "");
-    const res = await fetch(`${SCOPE_API_URL}/mcp/${endpoint}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${SCOPE_API_KEY}`,
-      },
-      body: JSON.stringify(args),
-    });
-
-    if (!res.ok) {
-      return JSON.stringify({
-        error: `Scope API returned ${res.status}`,
-        message: await res.text(),
-      });
-    }
-
-    return await res.text();
-  } catch (error) {
-    return JSON.stringify({
-      error: "Failed to call Scope tool",
-      details: String(error),
-    });
-  }
-}
-
-function extractSources(toolResults: { name: string; result: string; args: Record<string, unknown> }[], projects: ProjectMapping[]): SourceReference[] {
-  const sources: SourceReference[] = [];
-
-  for (const tr of toolResults) {
-    try {
-      const data = JSON.parse(tr.result);
-      const projectId = tr.args.project_id as string;
-      const project = projects.find((p) => p.id === projectId);
-
-      if (Array.isArray(data?.results)) {
-        for (const r of data.results.slice(0, 5)) {
-          if (r.file_path || r.path) {
-            sources.push({
-              filePath: r.file_path || r.path,
-              snippet: r.snippet || r.content || "",
-              projectId,
-              projectName: project?.name || projectId,
-              language: r.language,
-            });
-          }
-        }
-      }
-    } catch {
-      // Not JSON or no results — skip
-    }
-  }
-
-  return sources;
+/** Convert search results to source references for the frontend */
+function toSourceReferences(results: TaggedSearchResult[]): SourceReference[] {
+  return results
+    .filter((r) => r.filePath)
+    .slice(0, 10)
+    .map((r) => ({
+      filePath: r.filePath!,
+      snippet: r.snippet || "",
+      projectId: r.projectId,
+      projectName: r.projectName,
+      language: r.language,
+    }));
 }
 
 export async function chat(
@@ -105,10 +84,18 @@ export async function chat(
   toolCalls: ToolCall[];
   sources: SourceReference[];
 }> {
-  const systemPrompt = buildSystemPrompt(selectedProjects);
-  const allToolCalls: ToolCall[] = [];
-  const allToolResults: { name: string; result: string; args: Record<string, unknown> }[] = [];
+  const userMessage = messages[messages.length - 1]?.content || "";
 
+  // Step 1: Fan out search to all selected Scope projects
+  const searchResults = await searchAcrossProjects(
+    selectedProjects,
+    userMessage
+  );
+
+  // Step 2: Build system prompt with injected context
+  const systemPrompt = buildSystemPrompt(selectedProjects, searchResults);
+
+  // Step 3: Call GitHub Copilot API (via GitHub Models)
   const chatMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
     ...messages.map((m) => ({
@@ -117,61 +104,25 @@ export async function chat(
     })),
   ];
 
-  // Allow up to 5 rounds of tool calling
-  for (let round = 0; round < 5; round++) {
-    const response = await client.chat.completions.create({
-      model: "gpt-4o",
-      messages: chatMessages,
-      tools: scopeMcpTools,
-      tool_choice: round === 0 ? "auto" : "auto",
-    });
-
-    const choice = response.choices[0];
-
-    if (!choice.message.tool_calls || choice.message.tool_calls.length === 0) {
-      // No more tool calls — return the final message
-      return {
-        message: choice.message.content || "",
-        toolCalls: allToolCalls,
-        sources: extractSources(allToolResults, selectedProjects),
-      };
-    }
-
-    // Process tool calls
-    chatMessages.push(choice.message);
-
-    for (const tc of choice.message.tool_calls) {
-      if (tc.type !== "function") continue;
-      const fn = tc.function;
-      const args = JSON.parse(fn.arguments);
-      const result = await callScopeTool(fn.name, args);
-
-      allToolCalls.push({
-        id: tc.id,
-        name: fn.name,
-        arguments: args,
-        projectId: args.project_id,
-      });
-
-      allToolResults.push({ name: fn.name, result, args });
-
-      chatMessages.push({
-        role: "tool",
-        tool_call_id: tc.id,
-        content: result,
-      });
-    }
-  }
-
-  // If we exhausted rounds, return last content
-  const lastResponse = await client.chat.completions.create({
+  const response = await client.chat.completions.create({
     model: "gpt-4o",
     messages: chatMessages,
+    temperature: 0.3,
   });
 
+  const answer = response.choices[0]?.message?.content || "";
+
+  // Build tool call records for the frontend to display what searches were made
+  const toolCalls: ToolCall[] = selectedProjects.map((p) => ({
+    id: `search-${p.id}`,
+    name: "scope_search",
+    arguments: { project_id: p.id, query: userMessage },
+    projectId: p.id,
+  }));
+
   return {
-    message: lastResponse.choices[0].message.content || "",
-    toolCalls: allToolCalls,
-    sources: extractSources(allToolResults, selectedProjects),
+    message: answer,
+    toolCalls,
+    sources: toSourceReferences(searchResults),
   };
 }

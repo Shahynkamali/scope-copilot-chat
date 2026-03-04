@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getProjectSummary } from "@/lib/scope-client";
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
 
@@ -9,29 +10,21 @@ export async function GET() {
     color: COLORS[idx],
     entityCount: 0,
     endpointCount: 0,
-    status: "synced",
+    status: "synced" as const,
   }));
 
-  // Try to fetch real counts from Scope API if configured
-  const scopeUrl = process.env.SCOPE_API_URL;
-  const scopeKey = process.env.SCOPE_API_KEY;
-
-  if (scopeUrl && scopeKey) {
-    for (const project of projects) {
+  // Fetch real counts from Scope API in parallel
+  await Promise.all(
+    projects.map(async (project) => {
       try {
-        const res = await fetch(`${scopeUrl}/projects/${project.id}/stats`, {
-          headers: { Authorization: `Bearer ${scopeKey}` },
-        });
-        if (res.ok) {
-          const stats = await res.json();
-          project.entityCount = stats.entityCount ?? 0;
-          project.endpointCount = stats.endpointCount ?? 0;
-        }
+        const summary = await getProjectSummary(project.id);
+        project.entityCount = summary.entityCount ?? 0;
+        project.endpointCount = summary.endpointCount ?? 0;
       } catch {
-        // Keep defaults
+        // Keep defaults — Scope may not be configured yet
       }
-    }
-  }
+    })
+  );
 
   return NextResponse.json(projects);
 }
