@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const { message, selectedProjectIds, conversationHistory } = body;
 
     // Build project mappings from env
-    const projects = [1, 2, 3, 4]
+    const projects = [1, 2, 3]
       .map((i) => ({
         id: process.env[`SCOPE_PROJECT_${i}_ID`] || `project-${i}`,
         name: process.env[`SCOPE_PROJECT_${i}_NAME`] || `repo-${i}`,

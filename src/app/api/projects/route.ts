@@ -1,28 +1,37 @@
 import { NextResponse } from "next/server";
 import { getProjectSummary } from "@/lib/scope-client";
 
-// Bimm brand colors
-const COLORS = ["#FF4433", "#4D74FB", "#6ECA09", "#7639e2"];
-
 export async function GET() {
-  const projects = [1, 2, 3, 4].map((i, idx) => ({
+  const projects = [1, 2, 3].map((i) => ({
     id: process.env[`SCOPE_PROJECT_${i}_ID`] || `project-${i}`,
     name: process.env[`SCOPE_PROJECT_${i}_NAME`] || `repo-${i}`,
-    color: COLORS[idx],
+    color: "#FF4433",
+    description: "",
+    projectType: "",
+    techStack: [] as string[],
     entityCount: 0,
-    endpointCount: 0,
+    entityNames: [] as string[],
+    serviceCount: 0,
     status: "synced" as const,
   }));
 
-  // Fetch real counts from Scope API in parallel
   await Promise.all(
     projects.map(async (project) => {
       try {
         const summary = await getProjectSummary(project.id);
-        project.entityCount = summary.entityCount ?? 0;
-        project.endpointCount = summary.endpointCount ?? 0;
+        if (summary?.data) {
+          const d = summary.data;
+          project.description = d.problem_statement || "";
+          project.projectType = d.project_type || "";
+          project.techStack = (d.tech_stack || [])
+            .filter((t) => t.choice !== "None" && t.choice !== "custom")
+            .map((t) => t.choice);
+          project.entityCount = d.entities?.length ?? 0;
+          project.entityNames = (d.entities || []).map((e) => e.name);
+          project.serviceCount = d.services?.length ?? 0;
+        }
       } catch {
-        // Keep defaults — Scope may not be configured yet
+        // Keep defaults
       }
     })
   );

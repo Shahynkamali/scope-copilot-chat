@@ -11,34 +11,37 @@ function headers() {
   };
 }
 
-// ---------- Types ----------
+// ---------- Types (matching actual API responses) ----------
 
 export interface ScopeSearchResult {
-  type: "entity" | "endpoint" | "pattern" | "convention" | string;
-  name: string;
-  description?: string;
-  filePath?: string;
-  snippet?: string;
+  id: string;
   score: number;
-  language?: string;
+  content_type: string;
+  reference_id: string;
+  text: string;
+  token_count: number;
 }
 
 export interface ScopeSearchResponse {
   results: ScopeSearchResult[];
+  total_tokens: number;
 }
 
-export interface ScopeProjectSummary {
-  entityCount: number;
-  endpointCount: number;
-  techStack?: string[];
+export interface ScopeSummaryData {
+  problem_statement?: string;
+  target_audience?: string;
+  project_type?: string;
+  tech_stack?: { category: string; choice: string; reasoning: string }[];
+  entities?: { name: string; description?: string }[];
+  business_rules?: string[];
+  patterns?: string[];
   conventions?: string[];
-  summary?: string;
+  services?: string[];
 }
 
-export interface ScopeAskResponse {
-  answer: string;
-  sources?: { filePath: string; snippet: string }[];
-  conversationId?: string;
+export interface ScopeSummaryResponse {
+  markdown: string;
+  data: ScopeSummaryData;
 }
 
 // ---------- Endpoints ----------
@@ -59,7 +62,7 @@ export async function searchProject(
 
   if (!res.ok) {
     console.error(`Scope search failed for ${projectId}:`, res.status);
-    return { results: [] };
+    return { results: [], total_tokens: 0 };
   }
 
   return res.json();
@@ -68,7 +71,7 @@ export async function searchProject(
 /** Get structured summary of everything Scope knows about a project */
 export async function getProjectSummary(
   projectId: string
-): Promise<ScopeProjectSummary> {
+): Promise<ScopeSummaryResponse | null> {
   const res = await fetch(
     `${SCOPE_API_URL}/api/projects/${projectId}/context/summary`,
     { headers: headers() }
@@ -76,36 +79,13 @@ export async function getProjectSummary(
 
   if (!res.ok) {
     console.error(`Scope summary failed for ${projectId}:`, res.status);
-    return { entityCount: 0, endpointCount: 0 };
+    return null;
   }
 
   return res.json();
 }
 
-/** Ask a question grounded in a single project's code */
-export async function askProject(
-  projectId: string,
-  question: string,
-  conversationId?: string
-): Promise<ScopeAskResponse> {
-  const res = await fetch(
-    `${SCOPE_API_URL}/api/projects/${projectId}/ask`,
-    {
-      method: "POST",
-      headers: headers(),
-      body: JSON.stringify({ question, conversation_id: conversationId }),
-    }
-  );
-
-  if (!res.ok) {
-    console.error(`Scope ask failed for ${projectId}:`, res.status);
-    return { answer: "" };
-  }
-
-  return res.json();
-}
-
-// ---------- Cross-project search ----------
+// ---------- Cross-project helpers ----------
 
 export interface TaggedSearchResult extends ScopeSearchResult {
   projectId: string;
@@ -128,6 +108,21 @@ export async function searchAcrossProjects(
     })
   );
 
-  // Flatten and sort by score descending
   return results.flat().sort((a, b) => b.score - a.score);
+}
+
+/** Get summaries for multiple projects */
+export async function getSummaries(
+  projects: { id: string; name: string }[]
+): Promise<Map<string, ScopeSummaryResponse>> {
+  const map = new Map<string, ScopeSummaryResponse>();
+
+  await Promise.all(
+    projects.map(async (p) => {
+      const summary = await getProjectSummary(p.id);
+      if (summary) map.set(p.id, summary);
+    })
+  );
+
+  return map;
 }

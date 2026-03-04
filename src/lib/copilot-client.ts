@@ -1,8 +1,12 @@
 import OpenAI from "openai";
-import { searchAcrossProjects, TaggedSearchResult } from "./scope-client";
+import {
+  searchAcrossProjects,
+  getSummaries,
+  TaggedSearchResult,
+  ScopeSummaryResponse,
+} from "./scope-client";
 import { ToolCall, SourceReference } from "./types";
 
-// GitHub Copilot API is OpenAI-compatible via GitHub Models
 const client = new OpenAI({
   apiKey: process.env.GITHUB_TOKEN,
   baseURL: "https://models.inference.ai.azure.com",
@@ -11,68 +15,72 @@ const client = new OpenAI({
 interface ProjectMapping {
   id: string;
   name: string;
-  color?: string;
 }
 
-/** Build the system prompt with project context injected */
 function buildSystemPrompt(
   projects: ProjectMapping[],
-  contextResults: TaggedSearchResult[]
+  summaries: Map<string, ScopeSummaryResponse>,
+  searchResults: TaggedSearchResult[]
 ): string {
-  const projectList = projects
-    .map((p) => `- "${p.name}" (ID: ${p.id})`)
-    .join("\n");
-
-  // Format search results grouped by project
-  const contextByProject = new Map<string, TaggedSearchResult[]>();
-  for (const r of contextResults) {
-    const existing = contextByProject.get(r.projectName) || [];
-    existing.push(r);
-    contextByProject.set(r.projectName, existing);
-  }
-
+  // Build per-project context blocks
   let contextBlock = "";
-  for (const [projectName, results] of contextByProject) {
-    contextBlock += `\n### [${projectName}]\n`;
-    for (const r of results.slice(0, 8)) {
-      contextBlock += `- **${r.type}**: ${r.name}`;
-      if (r.description) contextBlock += ` — ${r.description}`;
-      if (r.filePath) contextBlock += ` (${r.filePath})`;
-      contextBlock += "\n";
-      if (r.snippet) {
-        contextBlock += `  \`\`\`\n  ${r.snippet.slice(0, 500)}\n  \`\`\`\n`;
+
+  for (const project of projects) {
+    contextBlock += `\n### [${project.name}]\n`;
+
+    // Include summary if available
+    const summary = summaries.get(project.id);
+    if (summary?.data) {
+      const d = summary.data;
+      if (d.problem_statement) contextBlock += `**About:** ${d.problem_statement}\n`;
+      if (d.project_type) contextBlock += `**Type:** ${d.project_type}\n`;
+      if (d.tech_stack?.length) {
+        contextBlock += `**Tech stack:** ${d.tech_stack.map((t) => `${t.category}: ${t.choice}`).join(", ")}\n`;
+      }
+      if (d.entities?.length) {
+        contextBlock += `**Entities:** ${d.entities.map((e) => e.name).join(", ")}\n`;
+      }
+      if (d.business_rules?.length) {
+        contextBlock += `**Conventions:**\n${d.business_rules.map((r) => `- ${r}`).join("\n")}\n`;
+      }
+    }
+
+    // Include search results for this project
+    const projectResults = searchResults.filter((r) => r.projectId === project.id);
+    if (projectResults.length > 0) {
+      contextBlock += `\n**Search results:**\n`;
+      for (const r of projectResults) {
+        contextBlock += `- [${r.content_type}] ${r.text}\n`;
       }
     }
   }
 
-  return `You are a cross-repository code assistant. You answer questions about codebases using real context from Scope.
+  return `You are BimmGater, a codebase assistant. You answer questions about codebases using real context from Scope.
 
 ## Available Projects
-${projectList}
+${projects.map((p) => `- "${p.name}" (ID: ${p.id})`).join("\n")}
 
 ## Codebase Context
-The following context was retrieved from Scope's semantic search across the selected repositories. Use this to ground your answers in real code.
-${contextBlock || "\n(No relevant context found — answer based on general knowledge and note that no specific code references were found.)"}
+${contextBlock || "\n(No context found.)"}
 
 ## Instructions
-1. Always cite which project and file your information comes from using [project-name] tags
-2. When referencing code, include the file path
-3. If the context doesn't contain enough information to fully answer, say so
-4. Be concise and technical
-5. When comparing across repos, clearly label which repo each piece comes from`;
+1. Answer based on the context provided above
+2. Be concise and technical
+3. If the context doesn't contain enough information, say what you do know and what's missing
+4. Reference specific details from the context when possible`;
 }
 
-/** Convert search results to source references for the frontend */
-function toSourceReferences(results: TaggedSearchResult[]): SourceReference[] {
+function toSourceReferences(
+  results: TaggedSearchResult[]
+): SourceReference[] {
   return results
-    .filter((r) => r.filePath)
     .slice(0, 10)
     .map((r) => ({
-      filePath: r.filePath!,
-      snippet: r.snippet || "",
+      filePath: r.reference_id || r.content_type,
+      snippet: r.text,
       projectId: r.projectId,
       projectName: r.projectName,
-      language: r.language,
+      language: undefined,
     }));
 }
 
@@ -86,16 +94,20 @@ export async function chat(
 }> {
   const userMessage = messages[messages.length - 1]?.content || "";
 
-  // Step 1: Fan out search to all selected Scope projects
-  const searchResults = await searchAcrossProjects(
+  // Step 1: Fetch summaries + search in parallel
+  const [searchResults, summaries] = await Promise.all([
+    searchAcrossProjects(selectedProjects, userMessage),
+    getSummaries(selectedProjects),
+  ]);
+
+  // Step 2: Build system prompt with real context
+  const systemPrompt = buildSystemPrompt(
     selectedProjects,
-    userMessage
+    summaries,
+    searchResults
   );
 
-  // Step 2: Build system prompt with injected context
-  const systemPrompt = buildSystemPrompt(selectedProjects, searchResults);
-
-  // Step 3: Call GitHub Copilot API (via GitHub Models)
+  // Step 3: Call GitHub Models API
   const chatMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
     ...messages.map((m) => ({
@@ -112,7 +124,6 @@ export async function chat(
 
   const answer = response.choices[0]?.message?.content || "";
 
-  // Build tool call records for the frontend to display what searches were made
   const toolCalls: ToolCall[] = selectedProjects.map((p) => ({
     id: `search-${p.id}`,
     name: "scope_search",

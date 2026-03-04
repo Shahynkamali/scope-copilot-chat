@@ -2,8 +2,12 @@ export interface Project {
   id: string;
   name: string;
   color: string;
+  description: string;
+  projectType: string;
+  techStack: string[];
   entityCount: number;
-  endpointCount: number;
+  entityNames: string[];
+  serviceCount: number;
   status: "synced" | "syncing" | "error";
 }
 
