@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Scope x Copilot",
+  title: "BimmGater",
   description: "Cross-repo intelligence powered by GitHub Copilot and Scope",
 };
 

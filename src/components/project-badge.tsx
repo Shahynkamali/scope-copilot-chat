@@ -2,18 +2,12 @@
 
 interface ProjectBadgeProps {
   name: string;
-  color: string;
 }
 
-export function ProjectBadge({ name, color }: ProjectBadgeProps) {
+export function ProjectBadge({ name }: ProjectBadgeProps) {
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
-      style={{ backgroundColor: color }}
-    >
-      <span
-        className="h-1.5 w-1.5 rounded-full bg-white/50"
-      />
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#FF4433]">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#FF4433]" />
       {name}
     </span>
   );

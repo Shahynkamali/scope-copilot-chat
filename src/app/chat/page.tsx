@@ -8,11 +8,8 @@ import {
   Database,
   Globe,
   Layers,
-  Zap,
   Sparkles,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { ChatThread } from "@/components/chat-thread";
 import { RepoSelector } from "@/components/repo-selector";
 import { ChatMessage, Project } from "@/lib/types";
@@ -41,9 +38,9 @@ export default function ChatPage() {
       .catch(() => {
         const fallback: Project[] = [
           { id: "project-1", name: "payments-service", color: "#FF4433", entityCount: 12, endpointCount: 8, status: "synced" },
-          { id: "project-2", name: "order-platform", color: "#4D74FB", entityCount: 18, endpointCount: 14, status: "synced" },
-          { id: "project-3", name: "storefront-web", color: "#6ECA09", entityCount: 9, endpointCount: 6, status: "synced" },
-          { id: "project-4", name: "notification-hub", color: "#7639e2", entityCount: 7, endpointCount: 5, status: "synced" },
+          { id: "project-2", name: "order-platform", color: "#FF4433", entityCount: 18, endpointCount: 14, status: "synced" },
+          { id: "project-3", name: "storefront-web", color: "#FF4433", entityCount: 9, endpointCount: 6, status: "synced" },
+          { id: "project-4", name: "notification-hub", color: "#FF4433", entityCount: 7, endpointCount: 5, status: "synced" },
         ];
         setProjects(fallback);
         setSelectedIds(fallback.map((p) => p.id));
@@ -72,8 +69,10 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const conversationHistory = messages
-        .map((m) => ({ role: m.role, content: m.content }));
+      const conversationHistory = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
 
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -87,23 +86,24 @@ export default function ChatPage() {
 
       const data = await res.json();
 
-      const assistantMsg: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        content: data.message,
-        toolCalls: data.toolCalls,
-        sources: data.sources,
-        timestamp: Date.now(),
-      };
-
-      setMessages((prev) => [...prev, assistantMsg]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: data.message,
+          toolCalls: data.toolCalls,
+          sources: data.sources,
+          timestamp: Date.now(),
+        },
+      ]);
     } catch {
       setMessages((prev) => [
         ...prev,
         {
           id: `error-${Date.now()}`,
           role: "assistant",
-          content: "Something went wrong. Please check your API configuration and try again.",
+          content: "Something went wrong. Check your API configuration and try again.",
           timestamp: Date.now(),
         },
       ]);
@@ -125,36 +125,38 @@ export default function ChatPage() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Main Chat Area */}
+    <div className="flex h-screen bg-black text-white">
+      {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="border-b border-border bg-card/80 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
+        <header className="border-b border-[#222] bg-black/90 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
           <Link href="/">
-            <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-[#FF4433]">
+            <button className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[#1a1a1a] text-[#888] hover:text-white transition-colors">
               <ArrowLeft className="h-4 w-4" />
-            </Button>
+            </button>
           </Link>
-          <div className="h-7 w-7 rounded-md bg-[#FF4433] flex items-center justify-center">
-            <Zap className="h-3.5 w-3.5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-sm font-semibold">Cross-Repo Chat</h1>
-            <p className="text-xs text-muted-foreground">
-              {selectedIds.length} of {projects.length} repos active
-            </p>
-          </div>
+          <span className="text-sm font-bold tracking-tight">
+            <span className="text-[#888]">[</span>
+            <span className="text-[#FF4433]">+</span>
+            <span className="text-white">bimm</span>
+            <span className="text-[#888]">]</span>
+          </span>
+          <span className="text-[#888] text-xs">/</span>
+          <span className="text-sm font-semibold">BimmGater</span>
+          <span className="text-xs text-[#888] ml-auto">
+            {selectedIds.length}/{projects.length} repos
+          </span>
         </header>
 
         {/* Empty state or messages */}
         {isEmpty ? (
           <div className="flex-1 flex flex-col items-center justify-center px-6">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#FF4433] to-[#FF4433]/60 flex items-center justify-center mb-6 shadow-lg shadow-[#FF4433]/20">
+            <div className="h-16 w-16 rounded-2xl bg-[#FF4433] flex items-center justify-center mb-6">
               <Sparkles className="h-8 w-8 text-white" />
             </div>
-            <h2 className="text-xl font-semibold mb-2">Ask about your codebases</h2>
-            <p className="text-sm text-muted-foreground mb-8 text-center max-w-md">
-              Ask questions that span across your connected repositories.
+            <h2 className="text-xl font-bold mb-2">Ask about your codebases</h2>
+            <p className="text-sm text-[#888] mb-8 text-center max-w-md">
+              Questions span across your connected repos.
               Scope provides real code context to ground every answer.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg w-full">
@@ -163,7 +165,7 @@ export default function ChatPage() {
                   key={query}
                   onClick={() => sendMessage(query)}
                   disabled={isLoading || selectedIds.length === 0}
-                  className="text-left text-sm px-4 py-3 rounded-xl border border-border bg-card/50 hover:bg-accent hover:border-[#FF4433]/20 transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  className="text-left text-sm px-4 py-3 rounded-xl border border-[#222] bg-[#111] hover:border-[#FF4433]/40 hover:text-white text-[#888] transition-all disabled:opacity-50"
                 >
                   {query}
                 </button>
@@ -179,7 +181,7 @@ export default function ChatPage() {
         )}
 
         {/* Input */}
-        <div className="border-t border-border bg-card/80 backdrop-blur-sm p-4">
+        <div className="border-t border-[#222] bg-black/90 backdrop-blur-sm p-4">
           <div className="max-w-3xl mx-auto flex gap-3">
             <textarea
               value={input}
@@ -187,68 +189,59 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder={
                 selectedIds.length === 0
-                  ? "Select at least one repo to start chatting..."
+                  ? "Select at least one repo..."
                   : "Ask about your codebase..."
               }
               disabled={isLoading || selectedIds.length === 0}
               rows={1}
-              className="flex-1 resize-none rounded-xl border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#FF4433]/40 focus:border-[#FF4433]/40 disabled:opacity-50 transition-all"
+              className="flex-1 resize-none rounded-xl border border-[#222] bg-[#111] px-4 py-2.5 text-sm text-white placeholder:text-[#555] focus:outline-none focus:border-[#FF4433]/50 disabled:opacity-50 transition-colors"
             />
-            <Button
+            <button
               onClick={() => sendMessage(input)}
               disabled={isLoading || !input.trim() || selectedIds.length === 0}
-              size="icon"
-              className="h-10 w-10 shrink-0 bg-[#FF4433] hover:bg-[#e63d2e] text-white shadow-md shadow-[#FF4433]/20 disabled:shadow-none transition-all"
+              className="h-10 w-10 shrink-0 rounded-xl bg-[#FF4433] hover:bg-[#e63d2e] text-white flex items-center justify-center disabled:bg-[#1a1a1a] disabled:text-[#555] transition-colors"
             >
               <Send className="h-4 w-4" />
-            </Button>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Sidebar */}
-      <aside className="w-64 border-l border-border bg-card/30 backdrop-blur-sm p-5 hidden md:flex flex-col gap-6">
+      <aside className="w-60 border-l border-[#222] bg-[#0a0a0a] p-5 hidden md:flex flex-col gap-6">
         <RepoSelector
           projects={projects}
           selected={selectedIds}
           onToggle={toggleProject}
         />
 
-        <Separator />
+        <div className="h-px bg-[#222]" />
 
         <div className="space-y-3">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          <h3 className="text-[10px] font-semibold text-[#888] uppercase tracking-widest">
             Context
           </h3>
           <div className="space-y-2.5 text-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Database className="h-3.5 w-3.5" />
-                Entities
+            {[
+              { icon: Database, label: "Entities", value: totalEntities },
+              { icon: Globe, label: "Endpoints", value: totalEndpoints },
+              { icon: Layers, label: "Repos", value: selectedIds.length },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label} className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-[#888]">
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </span>
+                <span className="font-semibold text-white">{value}</span>
               </div>
-              <span className="font-semibold text-foreground">{totalEntities}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Globe className="h-3.5 w-3.5" />
-                Endpoints
-              </div>
-              <span className="font-semibold text-foreground">{totalEndpoints}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Layers className="h-3.5 w-3.5" />
-                Repos
-              </div>
-              <span className="font-semibold text-foreground">{selectedIds.length}</span>
-            </div>
+            ))}
           </div>
         </div>
 
-        <Separator />
+        <div className="h-px bg-[#222]" />
 
-        <div className="mt-auto text-xs text-muted-foreground/60 text-center">
-          Powered by Scope + GitHub Copilot
+        <div className="mt-auto text-[10px] text-[#555] text-center">
+          Powered by Scope + Copilot
         </div>
       </aside>
     </div>

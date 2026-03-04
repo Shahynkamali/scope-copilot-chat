@@ -45,88 +45,82 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-
-  /* Bimm brand colors */
-  --color-bimm-red: #FF4433;
-  --color-bimm-blue: #4D74FB;
-  --color-bimm-coral: #F7978F;
-  --color-bimm-cyan: #00C6FF;
-  --color-bimm-navy: #090078;
-  --color-bimm-green: #6ECA09;
-  --color-bimm-purple: #7639e2;
-  --color-bimm-gold: #FAB901;
 }
 
 body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/*
+  Bimm palette: black + white + orange (#FF4433)
+  Everything dark, orange accents, white text.
+*/
 :root {
-  --radius: 0.625rem;
-  --background: #ffffff;
-  --foreground: #171A1D;
-  --card: #ffffff;
-  --card-foreground: #171A1D;
-  --popover: #ffffff;
-  --popover-foreground: #171A1D;
+  --radius: 0.5rem;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #111111;
+  --card-foreground: #ffffff;
+  --popover: #111111;
+  --popover-foreground: #ffffff;
   --primary: #FF4433;
   --primary-foreground: #ffffff;
-  --secondary: #F6F7FA;
-  --secondary-foreground: #171A1D;
-  --muted: #ECEFF4;
-  --muted-foreground: #6b7280;
-  --accent: #F6F7FA;
-  --accent-foreground: #171A1D;
-  --destructive: #D0021B;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ffffff;
+  --muted: #1a1a1a;
+  --muted-foreground: #888888;
+  --accent: #1a1a1a;
+  --accent-foreground: #ffffff;
+  --destructive: #FF4433;
+  --border: #222222;
+  --input: #1a1a1a;
   --ring: #FF4433;
   --chart-1: #FF4433;
-  --chart-2: #4D74FB;
-  --chart-3: #6ECA09;
-  --chart-4: #FAB901;
-  --chart-5: #7639e2;
-  --sidebar: #F6F7FA;
-  --sidebar-foreground: #171A1D;
+  --chart-2: #FF4433;
+  --chart-3: #FF4433;
+  --chart-4: #FF4433;
+  --chart-5: #FF4433;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #ffffff;
   --sidebar-primary: #FF4433;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ECEFF4;
-  --sidebar-accent-foreground: #171A1D;
-  --sidebar-border: #e5e7eb;
+  --sidebar-accent: #1a1a1a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #222222;
   --sidebar-ring: #FF4433;
 }
 
 .dark {
-  --background: #111318;
-  --foreground: #ECEFF4;
-  --card: #1a1d24;
-  --card-foreground: #ECEFF4;
-  --popover: #1a1d24;
-  --popover-foreground: #ECEFF4;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #111111;
+  --card-foreground: #ffffff;
+  --popover: #111111;
+  --popover-foreground: #ffffff;
   --primary: #FF4433;
   --primary-foreground: #ffffff;
-  --secondary: #1f2329;
-  --secondary-foreground: #ECEFF4;
-  --muted: #1f2329;
-  --muted-foreground: #9ca3af;
-  --accent: #1f2329;
-  --accent-foreground: #ECEFF4;
-  --destructive: #D0021B;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.1);
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ffffff;
+  --muted: #1a1a1a;
+  --muted-foreground: #888888;
+  --accent: #1a1a1a;
+  --accent-foreground: #ffffff;
+  --destructive: #FF4433;
+  --border: #222222;
+  --input: #1a1a1a;
   --ring: #FF4433;
   --chart-1: #FF4433;
-  --chart-2: #4D74FB;
-  --chart-3: #6ECA09;
-  --chart-4: #FAB901;
-  --chart-5: #7639e2;
-  --sidebar: #151820;
-  --sidebar-foreground: #ECEFF4;
+  --chart-2: #FF4433;
+  --chart-3: #FF4433;
+  --chart-4: #FF4433;
+  --chart-5: #FF4433;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #ffffff;
   --sidebar-primary: #FF4433;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1f2329;
-  --sidebar-accent-foreground: #ECEFF4;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-accent: #1a1a1a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #222222;
   --sidebar-ring: #FF4433;
 }
 
@@ -139,7 +133,6 @@ body {
   }
 }
 
-/* Smooth scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -147,9 +140,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: #222222;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: #333333;
 }
